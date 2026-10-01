@@ -142,6 +142,52 @@ test("comportamento definido quando não há safe moves", () => {
   });
 });
 
+// --- Cenários da estratégia ---
+
+const c = (x: number, y: number) => ({ x, y });
+
+function snake(id: string, body: Array<{ x: number; y: number }>) {
+  return { id, name: id, health: 100, body, head: body[0], length: body.length };
+}
+
+// Estado com a gente (`me`) e os adversários, sem comida.
+function arena(me: ReturnType<typeof snake>, opponents: Array<ReturnType<typeof snake>>) {
+  const state = gameState(me.body[0], me.body[1]);
+  state.board.food = [];
+  state.board.snakes = [me, ...opponents];
+  state.you = me;
+  return state;
+}
+
+test("evita head-to-head com cobra maior", () => {
+  // Adversário maior com a cabeça em (7,5): a casa (6,5) é disputada.
+  const me = snake("eu", [c(5, 5), c(4, 5), c(3, 5)]);
+  const big = snake("grande", [c(7, 5), c(8, 5), c(9, 5), c(10, 5), c(10, 4)]);
+  assert.notEqual(move(arena(me, [big])).move, "right");
+});
+
+test("evita beco", () => {
+  // Esquerda leva a um bolsão de 5 casas, fechado pelo corpo do adversário
+  // (que acabou de comer, então a cauda não sai): cabem menos casas que o
+  // nosso corpo (6). Subir é a única saída boa.
+  const me = snake("eu", [c(3, 0), c(4, 0), c(5, 0), c(6, 0), c(7, 0), c(8, 0)]);
+  const wall = snake("parede", [c(0, 4), c(0, 3), c(0, 2), c(1, 2), c(2, 2), c(2, 1), c(2, 1)]);
+  assert.equal(move(arena(me, [wall])).move, "up");
+});
+
+test("cauda conta como casa livre", () => {
+  // Enrolada no canto: a única saída é a casa onde está a própria cauda.
+  const me = snake("eu", [c(0, 0), c(0, 1), c(1, 1), c(1, 0)]);
+  assert.equal(move(arena(me, [])).move, "right");
+});
+
+test("com fome vai para a comida", () => {
+  const me = { ...snake("eu", [c(5, 5), c(5, 4), c(5, 3)]), health: 10 };
+  const state = arena(me, []);
+  state.board.food = [c(7, 5)];
+  assert.equal(move(state).move, "right");
+});
+
 // start e end não lançam exceções com estado válido
 test("start e end não quebram com estado de jogo válido", () => {
   const state = gameState({ x: 5, y: 4 }, { x: 4, y: 4 });
